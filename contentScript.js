@@ -36,7 +36,7 @@
 
   let options = {
     container: null,
-    iFrameId: 'PIP Element Picker Frame',
+    iFrameId: 'POP Element Picker Frame',
     enabled: false,
     selectors: "*",
     background: HIGHLIGHT_BG_COLOR,
@@ -46,7 +46,7 @@
     transition: "",
     ignoreElements: [],
     action: {},
-    hoverBoxInfoId: 'pip_picker_info',
+    hoverBoxInfoId: 'pop_picker_info',
   }
 
   function injectCSSFile(win, cssFile) {
@@ -86,7 +86,7 @@
 
   // close picker and set var to null
   function closePicker() {
-    debug.log("[PIPElement:CTX] closePicker()");
+    debug.log("[POPElement:CTX] closePicker()");
     if (elementPicker) {
       elementPicker.enabled = false;
       elementPicker.close();
@@ -98,27 +98,27 @@
     const defaults = { append:false };
     options = {...defaults, ...options};
     
-    debug.log("[PIPElement:CTX] target:", target);
-    if (elementPicker) debug.log("[PIPElement:CTX] info:", elementPicker.hoverInfo);
+    debug.log("[POPElement:CTX] target:", target);
+    if (elementPicker) debug.log("[POPElement:CTX] info:", elementPicker.hoverInfo);
     lastTriggeredElement = target;
     
-    const newPipElement = {
+    const newPOPElement = {
       element: lastTriggeredElement, 
       container: lastTriggeredElement.parentElement, 
       nextElementSibling: lastTriggeredElement.nextElementSibling != elementPicker?.iframe ? lastTriggeredElement.nextElementSibling : null
     };
     
     // add element to pip window, restore element on "pagehide" event
-    function _addToPipWindow(win, newPipElement) {
-      win.document.body.append(newPipElement.element);
-      newPipElement.element.classList.add('piped-element');
-      debug.log("[PIPElement:CTX] add pipElement:", newPipElement);
+    function _addToPipWindow(win, newPOPElement) {
+      win.document.body.append(newPOPElement.element);
+      newPOPElement.element.classList.add('piped-element');
+      debug.log("[POPElement:CTX] add POPElement:", newPOPElement);
       
       // move the pip-ed element back when the Picture-in-Picture window closes
       win.addEventListener("pagehide", (event) => {
-        const {element, container, nextElementSibling} = newPipElement;
-        newPipElement.element.classList.remove('piped-element');
-        debug.log("[PIPElement:CTX] restore ('pagehide' event):", event, "pipElement:", newPipElement);
+        const {element, container, nextElementSibling} = newPOPElement;
+        newPOPElement.element.classList.remove('piped-element');
+        debug.log("[POPElement:CTX] restore ('pagehide' event):", event, "POPElement:", newPOPElement);
         (container || document).insertBefore(element, nextElementSibling);
         
         pipWindow = null;
@@ -127,33 +127,33 @@
     
     // request pip window        
     if (pipWindow && options.append) {
-      debug.log("[PIPElement:CTX] ADD to existing pipWindow");
-      _addToPipWindow(pipWindow, newPipElement);
+      debug.log("[POPElement:CTX] ADD to existing pipWindow");
+      _addToPipWindow(pipWindow, newPOPElement);
     } else {
       const width = 0; // elementPicker.hoverInfo.width + 22;
       const height = 0; // elementPicker.hoverInfo.height + 22;
       documentPictureInPicture.requestWindow({width: width, height: height}).then((win) => {
         // close old pipWindow if exists
         if (pipWindow) {
-          debug.log("[PIPElement:CTX] CLOSE existing pipWindow");
+          debug.log("[POPElement:CTX] CLOSE existing pipWindow");
           pipWindow.close();
         }
 
         copyStyleSheetsToPipWindow(win);
-        injectCSSFile(win, chrome.runtime.getURL('PIPElement.css'));
+        injectCSSFile(win, chrome.runtime.getURL('POPElement.css'));
 
         pipWindow = win;
-        debug.log(`[PIPElement:CTX] ADD to NEW pipWindow (w:${width}, h:${height})`);
+        debug.log(`[POPElement:CTX] ADD to NEW pipWindow (w:${width}, h:${height})`);
 
-        _addToPipWindow(pipWindow, newPipElement);
+        _addToPipWindow(pipWindow, newPOPElement);
       }).catch((error) => {
-        console.warn(`[PIPElement:CTX] Whoops... ${error.message}`);
+        console.warn(`[POPElement:CTX] Whoops... ${error.message}`);
       });
     }
   }
 
   function createPicker() {
-    debug.log("[PIPElement:CTX] createPicker()");
+    debug.log("[POPElement:CTX] createPicker()");
 
     elementPicker = new ElementPicker(options);
 
@@ -162,7 +162,7 @@
       trigger: "mouseup",
       
       callback: ((event, target) => {
-        debug.log("[PIPElement:CTX] event:", event);
+        debug.log("[POPElement:CTX] event:", event);
         let continuePicking = event.shiftKey;
         event.triggered = event.triggered ?? event.button == 0; // only proceed if left mouse button was pressed or "event.triggered" was set
         if (event.triggered) {
@@ -177,7 +177,7 @@
   }
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    debug.log("[PIPElement:CTX]", msg);
+    debug.log("[POPElement:CTX]", msg);
     const { event, data } = msg;
 
     if (event === "togglePicker") {
@@ -204,7 +204,7 @@
   keyEventContainer.addEventListener('keyup', function(e) {
     if (e.code === 'Escape' && elementPicker?.enabled) {
       closePicker();
-      debug.log("[PIPElement:CTX] user aborted");
+      debug.log("[POPElement:CTX] user aborted");
     }
   }, true);
 
@@ -214,7 +214,7 @@
     let newTargetIdx = null;
     if (e.code === 'Space' && elementPicker?.enabled) {
       target = elementPicker.hoverInfo.element;
-      debug.log("[PIPElement:CTX] space-clicked target:", target);
+      debug.log("[POPElement:CTX] space-clicked target:", target);
       e.preventDefault();
       e.triggered = true; // checked inside action callback
       elementPicker.trigger(e);
@@ -245,14 +245,14 @@
         /*if (newTarget.contains(elementPicker.iframe)) {
           newTarget = target;
         }*/
-        debug.log("[PIPElement:CTX] Q-pressed new ↑ target:", newTarget);
+        debug.log("[POPElement:CTX] Q-pressed new ↑ target:", newTarget);
       } else if (e.code === 'KeyA' && targetHasPrev) { // drill down
         newTargetIdx = targetIdx - 1;
         newTarget = ancestorsAndSelf[newTargetIdx];
         /*if (newTarget.contains(elementPicker.iframe)) {
           newTarget = target;
         }*/
-        debug.log("[PIPElement:CTX] A-pressed new ↓ target:", newTarget);
+        debug.log("[POPElement:CTX] A-pressed new ↓ target:", newTarget);
       }
       debug.log(`${newTargetIdx}/${ancestorsAndSelfLength - 1}`, 'newTarget', targetHasPrev, targetHasNext, newTarget, ancestorsAndSelf);
       if (newTarget && newTarget != target) {
@@ -268,7 +268,7 @@
     if (elementPicker?.enabled) {
       let cursorIdx = +event.shiftKey;
       if (elementPicker.hoverBox.style.cursor != CURSORS[cursorIdx]) {
-        debug.log('[PIPElement:CTX] change cursor to ' + CURSORS[cursorIdx]);
+        debug.log('[POPElement:CTX] change cursor to ' + CURSORS[cursorIdx]);
         elementPicker.hoverBox.style.cursor = CURSORS[cursorIdx];
       }
     }
