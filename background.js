@@ -3,74 +3,156 @@
 let manifest = chrome.runtime.getManifest();
 console.log(manifest.name + " v" + manifest.version);
 
+let size = {
+  width: 800,
+  height: 600,
+};
+
+let offset = {
+  top: 20,
+  left: 20,
+};
+
+function openPopupWindow(options) {
+  const defaults = {
+    type: 'popup',
+    width: size.width,
+    height: size.height,
+    top: offset.top,
+    left: offset.left,
+  };
+  options = { ...defaults, ...options };
+
+  chrome.windows.create(options, (win) => {
+    console.log('created', win, 'tab', options?.tabId);
+  });
+}
+
+
+async function reattachTab(tab) {
+  const options = { windowTypes:['normal'] };
+  let win = await chrome.windows.getLastFocused(options);
+  let allWindows = await chrome.windows.getAll(options);
+  console.log('last win', win, allWindows);
+  let index = -1;
+  if (!win) {
+    if (allWindows?.length > 0) {
+      win = allWindows[allWindows.length - 1];
+    } else {
+      win = await chrome.windows.create({ tabId:tab.id });
+    }
+  }
+  
+  let reattachedTab = await chrome.tabs.move(tab.id, { windowId:win.id, index:-1 });
+  chrome.tabs.update(reattachedTab.id, { active:true });
+  updateContextMenu({reattach:false});
+}
+
 // add/remove contextMenu entry
-const contexts = ["page", "frame", "selection", "link", "editable", "image", "video", "audio"]; // all but "action" context
-// const contexts = ["action"]; // only "action" context
-const PIPPageContextId = "POPElement_onPIPPageContextMenu";
-function createContextMenu(options={}) {
-  const defaults = { enable:true };
+const otherContexts = ["page", "frame", "selection", "link", "editable", "image", "video", "audio"]; // all but "action" context
+const actionContext = ["action"]; // only "action" context
+const POPPickerContextId = "POPElement_onTogglePickerContextMenu";
+const POPReattachContextId = "POPElement_onReattachContextMenu";
+function updateContextMenu(options={}) {
+  const defaults = { picker:true, reattach:false };
   options = { ...defaults, ...options };
   chrome.contextMenus.removeAll(function() {
     // console.log("remove");
     if (chrome.runtime.lastError) {
       console.warn('Whoops...', chrome.runtime.lastError.message);
-    } else if (options.enable) {
-      chrome.contextMenus.create({
-        id: PIPPageContextId,
-        title: "View tab as Popped-Out-Page...",
-        contexts: contexts,
-      }, () => {
-        // console.log("create");
-        if (chrome.runtime.lastError) {
-          console.warn('Whoops...', chrome.runtime.lastError.message);
-        }      
-      });
+    } else {
+      
+      // toggle picker
+      if (options.picker) {
+        chrome.contextMenus.create({
+          id: POPPickerContextId,
+          title: "Toggle element picker...",
+          contexts: actionContext,
+        }, () => {
+          // console.log("create");
+          if (chrome.runtime.lastError) {
+            console.warn('Whoops...', chrome.runtime.lastError.message);
+          }      
+        });
+      }
+      
+      // re-attach as tab
+      if (options.reattach) {
+        chrome.contextMenus.create({
+          id: POPReattachContextId,
+          title: "Re-attach as tab...",
+          contexts: otherContexts,
+        }, () => {
+          // console.log("create");
+          if (chrome.runtime.lastError) {
+            console.warn('Whoops...', chrome.runtime.lastError.message);
+          }      
+        });
+      }
     }
   });
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  // createContextMenu({enable:true});
+  // updateContextMenu({enable:true});
 });
+
 
 // enable picker when clicking the browser action
 chrome.action.onClicked.addListener(async (tab) => {
   console.log("[POPElement:BG] onClicked");
-  chrome.tabs.sendMessage(
+
+  let options = { tabId:tab.id };
+  openPopupWindow(options);
+  /*chrome.tabs.sendMessage(
     tab.id,
     {
-      event: "togglePicker",
+      event: "popOutPage",
       data: null,
     }
-  );
+  );*/
 });
 
 chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
   console.log("[POPElement:BG]", msg);
   const { event, data } = msg;
 
+  if (event === 'popInPage') {
+    const tabId = sender.tab.id;
+  }
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   console.log("[POPElement:BG] onContextMenuClicked:", [info, tab]);
 
-  if (info.menuItemId === PIPPageContextId) {
-    const [activeTab] = await chrome.tabs.query({active: true, currentWindow: true});
-    console.log("[POPElement:BG] opening page in Popped-Out-Page...");
-    if (tab.id <= 0) {
-      console.log("[POPElement:BG] tabId <= 0:", tab.id, activeTab);
-      tab.id = activeTab?.id;
-    }
-    if (tab.id >= 0) {
+  const [activeTab] = await chrome.tabs.query({active: true, currentWindow: true});
+  if (tab.id <= 0) {
+    console.log("[POPElement:BG] tabId <= 0:", tab.id, activeTab);
+    tab.id = activeTab?.id;
+  }
+  if (tab.id <= 0) {
+    console.warn(`[POPElement:BG] Whoops... No valid tab.id found.`);
+  } else {
+  
+    if (info.menuItemId === POPPickerContextId) {
+      console.log("[POPElement:BG] opening page in Popped-Out-Page...");
       chrome.tabs.sendMessage(
         tab.id,
         {
-          event: "PIPPage",
-          data: { enable: false },
+          event: "togglePicker",
+          data: null,
         }
       );
-    } else {
-      console.warn(`[POPElement:BG] Whoops... No valid tab.id found.`);
+    } else if (info.menuItemId === POPReattachContextId) {
+      console.log("[POPElement:BG] re-attach as tab...", tab.id);
+      reattachTab(tab);
+      chrome.tabs.sendMessage(
+        tab.id,
+        {
+          event: "popInPage",
+          data: null,
+        }
+      );
     }
   }
 });
@@ -79,7 +161,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 async function checkState(tabId=null) {
   if (tabId == null) {
     const [activeTab] = await chrome.tabs.query({active: true, currentWindow: true});
-    tabId = activeTab.id;
+    tabId = activeTab?.id;
   }
   console.log('checkState for', 'tabId', tabId);
   
@@ -112,6 +194,8 @@ async function setState(allowed, tabId=null) {
   
   let actionTitle = `${manifest.action.default_title} v${manifest.version}`;
   chrome.action.setTitle({tabId: tabId, title: actionTitle});
+  const currWindow = await chrome.windows.getCurrent();
+  const showReattach = currWindow?.type === 'popup';
   
   if (!allowed) {
     actionTitle = actionTitle + ' (DISABLED for this site)';
@@ -123,7 +207,7 @@ async function setState(allowed, tabId=null) {
       }
       console.log("contextMenu disabled")
     });*/
-    createContextMenu({enable:allowed});
+    updateContextMenu({picker:allowed, reattach:showReattach});
   } else {
     chrome.action.setTitle({tabId: tabId, title: actionTitle});
     chrome.action.enable(tabId);
@@ -133,7 +217,7 @@ async function setState(allowed, tabId=null) {
       }
       console.log("contextMenu enabled")
     }); */
-    createContextMenu({enable:allowed});
+    updateContextMenu({picker:allowed, reattach:showReattach});
   }
 }
 
@@ -149,7 +233,16 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   console.log("onActivated activeInfo", activeInfo);
 
   setState(false);
-  checkState(activeTab.id);
+  checkState(activeInfo.tabId);
+});
+
+chrome.windows.onFocusChanged.addListener(async (windowId) => {
+  let [activeTab] = await chrome.tabs.query({active: true, currentWindow: true});
+  console.log("onFocusChanged", windowId, activeTab);
+  
+  if (activeTab?.id) {
+    checkState(activeTab.id);
+  }
 });
 
 setState(false);

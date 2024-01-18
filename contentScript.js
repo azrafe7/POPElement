@@ -49,39 +49,6 @@
     hoverBoxInfoId: 'pop_picker_info',
   }
 
-  function injectCSSFile(win, cssFile) {
-    const link = document.createElement('link');
-
-    link.rel = 'stylesheet';
-    link.type = 'text/css';
-    link.href = cssFile;
-    win.document.head.appendChild(link);
-  }
-
-  function copyStyleSheetsToPipWindow(win) {
-    if (!win) return;
-    
-    // copy style sheets over from the initial document
-    // so that the elements look the same
-    [...document.styleSheets].forEach((styleSheet) => {
-      try {
-        const cssRules = [...styleSheet.cssRules].map((rule) => rule.cssText).join('');
-        const style = document.createElement('style');
-
-        style.textContent = cssRules;
-        win.document.head.appendChild(style);
-      } catch (e) {
-        const link = document.createElement('link');
-
-        link.rel = 'stylesheet';
-        link.type = styleSheet.type;
-        link.media = styleSheet.media;
-        link.href = styleSheet.href;
-        win.document.head.appendChild(link);
-      }
-    });
-  }
-
   let elementPicker = null;
 
   // close picker and set var to null
@@ -94,7 +61,7 @@
     }
   }
 
-  function addToPipWindow(target, options={}) {
+  function addToPopWindow(target, options={}) {
     const defaults = { append:false };
     options = {...defaults, ...options};
     
@@ -107,49 +74,6 @@
       container: lastTriggeredElement.parentElement, 
       nextElementSibling: lastTriggeredElement.nextElementSibling != elementPicker?.iframe ? lastTriggeredElement.nextElementSibling : null
     };
-    
-    // add element to pip window, restore element on "pagehide" event
-    function _addToPipWindow(win, newPOPElement) {
-      win.document.body.append(newPOPElement.element);
-      newPOPElement.element.classList.add('piped-element');
-      debug.log("[POPElement:CTX] add POPElement:", newPOPElement);
-      
-      // move the pip-ed element back when the Picture-in-Picture window closes
-      win.addEventListener("pagehide", (event) => {
-        const {element, container, nextElementSibling} = newPOPElement;
-        newPOPElement.element.classList.remove('piped-element');
-        debug.log("[POPElement:CTX] restore ('pagehide' event):", event, "POPElement:", newPOPElement);
-        (container || document).insertBefore(element, nextElementSibling);
-        
-        pipWindow = null;
-      });
-    }
-    
-    // request pip window        
-    if (pipWindow && options.append) {
-      debug.log("[POPElement:CTX] ADD to existing pipWindow");
-      _addToPipWindow(pipWindow, newPOPElement);
-    } else {
-      const width = 0; // elementPicker.hoverInfo.width + 22;
-      const height = 0; // elementPicker.hoverInfo.height + 22;
-      documentPictureInPicture.requestWindow({width: width, height: height}).then((win) => {
-        // close old pipWindow if exists
-        if (pipWindow) {
-          debug.log("[POPElement:CTX] CLOSE existing pipWindow");
-          pipWindow.close();
-        }
-
-        copyStyleSheetsToPipWindow(win);
-        injectCSSFile(win, chrome.runtime.getURL('POPElement.css'));
-
-        pipWindow = win;
-        debug.log(`[POPElement:CTX] ADD to NEW pipWindow (w:${width}, h:${height})`);
-
-        _addToPipWindow(pipWindow, newPOPElement);
-      }).catch((error) => {
-        console.warn(`[POPElement:CTX] Whoops... ${error.message}`);
-      });
-    }
   }
 
   function createPicker() {
@@ -190,9 +114,9 @@
       } else {
         closePicker();
       }
-    } else if (event === "PIPPage") {
+    } else if (event === "popOutPage") {
       if (elementPicker?.enabled) closePicker();
-      addToPipWindow(document.documentElement, { append: false });
+      chrome.runtime.sendMessage({event: 'popOutPage', data: null});
     } else if (event === 'checkState') {
       sendResponse({event: 'setState', data: { allowed:true }});
     }
