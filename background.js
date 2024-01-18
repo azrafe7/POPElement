@@ -6,7 +6,7 @@ console.log(manifest.name + " v" + manifest.version);
 // add/remove contextMenu entry
 const contexts = ["page", "frame", "selection", "link", "editable", "image", "video", "audio"]; // all but "action" context
 // const contexts = ["action"]; // only "action" context
-const PIPPageContextId = "PIPElement_onPIPPageContextMenu";
+const PIPPageContextId = "POPElement_onPIPPageContextMenu";
 function createContextMenu(options={}) {
   const defaults = { enable:true };
   options = { ...defaults, ...options };
@@ -17,7 +17,7 @@ function createContextMenu(options={}) {
     } else if (options.enable) {
       chrome.contextMenus.create({
         id: PIPPageContextId,
-        title: "View current page Picture-In-Picture...",
+        title: "View tab as Popped-Out-Page...",
         contexts: contexts,
       }, () => {
         // console.log("create");
@@ -35,7 +35,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // enable picker when clicking the browser action
 chrome.action.onClicked.addListener(async (tab) => {
-  console.log("[PIPElement:BG] onClicked");
+  console.log("[POPElement:BG] onClicked");
   chrome.tabs.sendMessage(
     tab.id,
     {
@@ -46,19 +46,19 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
-  console.log("[PIPElement:BG]", msg);
+  console.log("[POPElement:BG]", msg);
   const { event, data } = msg;
 
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  console.log("[PIPElement:BG] onContextMenuClicked:", [info, tab]);
+  console.log("[POPElement:BG] onContextMenuClicked:", [info, tab]);
 
   if (info.menuItemId === PIPPageContextId) {
     const [activeTab] = await chrome.tabs.query({active: true, currentWindow: true});
-    console.log("[PIPElement:BG] opening page Picture-In-Picture...");
+    console.log("[POPElement:BG] opening page in Popped-Out-Page...");
     if (tab.id <= 0) {
-      console.log("[PIPElement:BG] tabId <= 0:", tab.id, activeTab);
+      console.log("[POPElement:BG] tabId <= 0:", tab.id, activeTab);
       tab.id = activeTab?.id;
     }
     if (tab.id >= 0) {
@@ -70,7 +70,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         }
       );
     } else {
-      console.warn(`[PIPElement:BG] Whoops... No valid tab.id found.`);
+      console.warn(`[POPElement:BG] Whoops... No valid tab.id found.`);
     }
   }
 });
