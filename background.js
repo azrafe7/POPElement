@@ -13,6 +13,19 @@ let offset = {
   left: 20,
 };
 
+async function sendMessageToTab(tabId, msg) {
+  return chrome.tabs.sendMessage(
+    tabId,
+    msg,
+    (response) => {
+      let lastError = chrome.runtime.lastError;
+      if (lastError) {
+        console.warn('Whoops...', lastError.message);
+      }
+    }
+  );
+}
+
 function openPopupWindow(options) {
   const defaults = {
     type: 'popup',
@@ -140,7 +153,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   
     if (info.menuItemId === POPPickerContextId) {
       console.log("[POPElement:BG] opening page in Popped-Out-Page...");
-      chrome.tabs.sendMessage(
+      sendMessageToTab(
         tab.id,
         {
           event: "togglePicker",
@@ -150,7 +163,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     } else if (info.menuItemId === POPReattachContextId) {
       console.log("[POPElement:BG] re-attach as tab...", tab.id);
       reattachTab(tab);
-      chrome.tabs.sendMessage(
+      sendMessageToTab(
         tab.id,
         {
           event: "popInPage",
