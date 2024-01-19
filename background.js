@@ -31,7 +31,13 @@ function openPopupWindow(options) {
 
 async function reattachTab(tab) {
   const options = { windowTypes:['normal'] };
-  let win = await chrome.windows.getLastFocused(options);
+  let win = null;
+  try {
+    win = await chrome.windows.getLastFocused(options);
+  } catch(error) {
+    // no last-focused window
+    win = null;
+  }
   let allWindows = await chrome.windows.getAll(options);
   console.log('last win', win, allWindows);
   if (!win) {
