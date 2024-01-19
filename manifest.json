@@ -1,7 +1,7 @@
 {
   "name": "POPElement",
   "version": "0.1.0",
-  "description": "Popup entire tabs or single elements in a separate window.",
+  "description": "Pop-Out-Page or a single element into a separate window.",
   "manifest_version": 3,
   "minimum_chrome_version": "116",
   "permissions": ["activeTab", "contextMenus"],

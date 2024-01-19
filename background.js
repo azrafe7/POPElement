@@ -34,7 +34,6 @@ async function reattachTab(tab) {
   let win = await chrome.windows.getLastFocused(options);
   let allWindows = await chrome.windows.getAll(options);
   console.log('last win', win, allWindows);
-  let index = -1;
   if (!win) {
     if (allWindows?.length > 0) {
       win = allWindows[allWindows.length - 1];
@@ -97,8 +96,7 @@ chrome.runtime.onInstalled.addListener(() => {
   // updateContextMenu({enable:true});
 });
 
-
-// enable picker when clicking the browser action
+// reacto to clicking the browser action
 chrome.action.onClicked.addListener(async (tab) => {
   console.log("[POPElement:BG] onClicked");
 
@@ -163,7 +161,7 @@ async function checkState(tabId=null) {
     const [activeTab] = await chrome.tabs.query({active: true, currentWindow: true});
     tabId = activeTab?.id;
   }
-  console.log('checkState for', 'tabId', tabId);
+  console.log('checkState for tabId', tabId);
   
   chrome.tabs.sendMessage(
     tabId,
@@ -190,8 +188,6 @@ async function setState(allowed, tabId=null) {
   }
   console.log('setState', allowed, 'tabId', tabId);
   
-  // tabId = null;
-  
   let actionTitle = `${manifest.action.default_title} v${manifest.version}`;
   chrome.action.setTitle({tabId: tabId, title: actionTitle});
   const currWindow = await chrome.windows.getCurrent();
@@ -201,22 +197,10 @@ async function setState(allowed, tabId=null) {
     actionTitle = actionTitle + ' (DISABLED for this site)';
     chrome.action.setTitle({tabId: tabId, title: actionTitle});
     chrome.action.disable(tabId);
-    /*chrome.contextMenus.update(PIPPageContextId, { enabled:allowed }, () => {
-      if (chrome.runtime.lastError) {
-        console.warn('Whoops...', chrome.runtime.lastError.message);
-      }
-      console.log("contextMenu disabled")
-    });*/
     updateContextMenu({picker:allowed, reattach:showReattach});
   } else {
     chrome.action.setTitle({tabId: tabId, title: actionTitle});
     chrome.action.enable(tabId);
-    /* chrome.contextMenus.update(PIPPageContextId, { enabled:allowed }, () => {
-      if (chrome.runtime.lastError) {
-        console.warn('Whoops...', chrome.runtime.lastError.message);
-      }
-      console.log("contextMenu enabled")
-    }); */
     updateContextMenu({picker:allowed, reattach:showReattach});
   }
 }
