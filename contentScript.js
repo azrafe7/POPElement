@@ -227,19 +227,4 @@
     }
   }, true);
 
-  // change picker cursor when holding SHIFT
-  function updateCursor(eventInfo) {
-    let {keyUp, event} = eventInfo;
-    if (elementPicker?.enabled) {
-      let cursorIdx = +event.shiftKey;
-      if (elementPicker.hoverBox.style.cursor != CURSORS[cursorIdx]) {
-        debug.log('[POPElement:CTX] change cursor to ' + CURSORS[cursorIdx]);
-        elementPicker.hoverBox.style.cursor = CURSORS[cursorIdx];
-      }
-    }
-  }
-  
-  keyEventContainer.addEventListener('keyup', (e) => updateCursor({keyUp: true, event: e}), true);
-  keyEventContainer.addEventListener('keydown', (e) => updateCursor({keyUp: false, event: e}), true);
-
 })();
