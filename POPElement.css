@@ -1,3 +1,14 @@
-.poped-element {
-  /*display: flex;*/
+.--popped-element {
+  display: inline-block !important;
+  background-color: red;
+}
+
+.--popped-element-ancestor {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.--non-popped-element {
+  display: none !important;
 }

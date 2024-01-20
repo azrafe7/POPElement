@@ -61,13 +61,54 @@
     }
   }
 
-  function addToPopWindow(target, options={}) {
+  function getAncestorsOf(el) {
+    let ancestors = [];
+    while (el && el.parentElement) {
+      el = el.parentElement;
+      ancestors.push(el);
+    }
+    return ancestors;
+  }
+
+  function getSiblingsOf(elements) {
+    if (!elements.hasOwnProperty('length')) elements = [elements];
+    let allSiblings = [];
+    for (const el of elements) {
+      if (el.parentElement) {
+        let children = Array.from(el.parentElement.children);
+        let siblings = children.filter((child) => child != el);
+        allSiblings = allSiblings.concat(siblings);
+      } else {
+        let prevSibling = el.previousElementSibling;
+        while (prevSibling) {
+          allSiblings.push(prevSibling);
+          prevSibling = el.previousElementSibling;
+        }
+        let nextSibling = el.nextElementSibling;
+        while (nextSibling) {
+          allSiblings.push(nextSibling);
+          nextSibling = el.nextElementSibling;
+        }
+      }
+    }
+    
+    return allSiblings;
+  }
+
+  function popWindow(target, options={}) {
     const defaults = { append:false };
     options = {...defaults, ...options};
     
     debug.log("[POPElement:CTX] target:", target);
     if (elementPicker) debug.log("[POPElement:CTX] info:", elementPicker.hoverInfo);
     lastTriggeredElement = target;
+    
+    let ancestors = getAncestorsOf(target);
+    let ancestorsSiblings = getSiblingsOf([target].concat(ancestors));
+    
+    target.classList.add('--popped-element');
+    for (const ancestor of ancestors) ancestor.classList.add('--popped-element-ancestor');
+    for (const sibling of ancestorsSiblings) sibling.classList.add('--non-popped-element');
     
     const newPOPElement = {
       element: lastTriggeredElement, 
@@ -90,10 +131,10 @@
         let continuePicking = event.shiftKey;
         event.triggered = event.triggered ?? event.button == 0; // only proceed if left mouse button was pressed or "event.triggered" was set
         if (event.triggered) {
-          addToPipWindow(target, { append: continuePicking });
+          popWindow(target, { append: continuePicking });
         }
         
-        elementPicker.enabled = continuePicking && event.triggered;
+        elementPicker.enabled = !event.triggered;
         
         if (!elementPicker.enabled) closePicker();
       })

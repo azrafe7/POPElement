@@ -134,8 +134,12 @@ chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
   console.log("[POPElement:BG]", msg);
   const { event, data } = msg;
 
-  if (event === 'popInPage') {
+  if (event === 'popOutElement') {
     const tabId = sender.tab.id;
+    const size = data;
+    let options = { tabId:tabId, ...size };
+    openPopupWindow(options);
+    chrome.scripting.
   }
 });
 

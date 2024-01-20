@@ -12,13 +12,13 @@
     {
       "matches": ["<all_urls>"],
       "js": ["ElementPicker.js", "contentScript.js"],
-      "css": ["ElementPicker.css"],
+      "css": ["ElementPicker.css", "POPElement.css"],
       "all_frames": false
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["POPElement.css"],
+      "resources": ["POPElement.css", "assets/icon128_popped.png"],
       "matches": ["<all_urls>"]
     }
   ],
