@@ -2,7 +2,7 @@
 
 (async () => {
   
-  const DEBUG = false;
+  const DEBUG = true;
   let debug = {
     log: DEBUG ? console.log.bind(console) : () => {} // log or NO_OP
   }
@@ -95,6 +95,13 @@
     return allSiblings;
   }
 
+  function removeCSS() {
+    const classes = ['--popped-element', '--non-popped-element', '--popped-element-ancestor'];
+    const classesSelector = classes.map((c) => "." + c).join(",");
+    const elements = document.querySelectorAll(classesSelector);
+    for (const el of elements) el.classList.remove(...classes);
+  }
+
   function popWindow(target, options={}) {
     const defaults = { append:false };
     options = {...defaults, ...options};
@@ -110,11 +117,10 @@
     for (const ancestor of ancestors) ancestor.classList.add('--popped-element-ancestor');
     for (const sibling of ancestorsSiblings) sibling.classList.add('--non-popped-element');
     
-    const newPOPElement = {
-      element: lastTriggeredElement, 
-      container: lastTriggeredElement.parentElement, 
-      nextElementSibling: lastTriggeredElement.nextElementSibling != elementPicker?.iframe ? lastTriggeredElement.nextElementSibling : null
-    };
+    for (const ancestor of ancestors) ancestor.style.setProperty('margin', '0', 'important');
+    
+    const rect = target.getBoundingClientRect();
+    chrome.runtime.sendMessage({ event:'popOutElement', data:rect });    
   }
 
   function createPicker() {
@@ -158,6 +164,8 @@
     } else if (event === "popOutPage") {
       if (elementPicker?.enabled) closePicker();
       chrome.runtime.sendMessage({event: 'popOutPage', data: null});
+    } else if (event === "removeCSS" || event === "popInPage") {
+      removeCSS();
     } else if (event === 'checkState') {
       sendResponse({event: 'setState', data: { allowed:true }});
     }

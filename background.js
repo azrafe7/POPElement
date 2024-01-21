@@ -33,6 +33,7 @@ function openPopupWindow(options) {
     height: size.height,
     top: offset.top,
     left: offset.left,
+    setSelfAsOpener:true,
   };
   options = { ...defaults, ...options };
 
@@ -70,6 +71,7 @@ async function reattachTab(tab) {
 const otherContexts = ["page", "frame", "selection", "link", "editable", "image", "video", "audio"]; // all but "action" context
 const actionContext = ["action"]; // only "action" context
 const POPPickerContextId = "POPElement_onTogglePickerContextMenu";
+const POPRemoveCSSContextId = "POPElement_onRemoveCSSContextMenu";
 const POPReattachContextId = "POPElement_onReattachContextMenu";
 function updateContextMenu(options={}) {
   const defaults = { picker:true, reattach:false };
@@ -79,6 +81,20 @@ function updateContextMenu(options={}) {
     if (chrome.runtime.lastError) {
       console.warn('Whoops...', chrome.runtime.lastError.message);
     } else {
+      
+      // remove CSS (debug)
+      if (true) {
+        chrome.contextMenus.create({
+          id: POPRemoveCSSContextId,
+          title: "Remove CSS...",
+          contexts: actionContext,
+        }, () => {
+          // console.log("create");
+          if (chrome.runtime.lastError) {
+            console.warn('Whoops...', chrome.runtime.lastError.message);
+          }      
+        });
+      }
       
       // toggle picker
       if (options.picker) {
@@ -130,16 +146,33 @@ chrome.action.onClicked.addListener(async (tab) => {
   );*/
 });
 
+function injectCSS(tabId, insert=true) {
+  let insertOrRemoveFunc = insert ? chrome.scripting.insertCSS : chrome.scripting.removeCSS;
+  insertOrRemoveFunc(
+    {
+      files: ['POPElement.css'],
+      target:
+        {
+          tabId: tabId,
+          allFrames: false
+        }
+    },
+    () => {
+      console.log("css " + (insert ? "inserted" : "removed") + "!");
+    }
+  );
+}
+
 chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
   console.log("[POPElement:BG]", msg);
   const { event, data } = msg;
 
   if (event === 'popOutElement') {
     const tabId = sender.tab.id;
-    const size = data;
-    let options = { tabId:tabId, ...size };
-    openPopupWindow(options);
-    chrome.scripting.
+    const elementSize = { width:parseInt(data.width), height:parseInt(data.height) + 40 };
+    let options = { tabId:tabId, ...elementSize};
+    // injectCSS(tabId, true);
+    // openPopupWindow(options);
   }
 });
 
@@ -167,10 +200,22 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     } else if (info.menuItemId === POPReattachContextId) {
       console.log("[POPElement:BG] re-attach as tab...", tab.id);
       reattachTab(tab);
+      injectCSS(tab.id, false);
       sendMessageToTab(
         tab.id,
         {
           event: "popInPage",
+          data: null,
+        }
+      );
+    } else if (info.menuItemId === POPRemoveCSSContextId) {
+      console.log("[POPElement:BG] remove CSS...", tab.id);
+      // reattachTab(tab);
+      injectCSS(tab.id, false);
+      sendMessageToTab(
+        tab.id,
+        {
+          event: "removeCSS",
           data: null,
         }
       );
@@ -218,10 +263,12 @@ async function setState(allowed, tabId=null) {
   
   if (!allowed) {
     actionTitle = actionTitle + ' (DISABLED for this site)';
+    chrome.action.setIcon({ path:'assets/icon128_popped.png' });
     chrome.action.setTitle({tabId: tabId, title: actionTitle});
     chrome.action.disable(tabId);
     updateContextMenu({picker:allowed, reattach:showReattach});
   } else {
+    chrome.action.setIcon({ path:'assets/icon128.png' });
     chrome.action.setTitle({tabId: tabId, title: actionTitle});
     chrome.action.enable(tabId);
     updateContextMenu({picker:allowed, reattach:showReattach});

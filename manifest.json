@@ -4,7 +4,7 @@
   "description": "Pop-Out-Page or a single element into a separate window.",
   "manifest_version": 3,
   "minimum_chrome_version": "116",
-  "permissions": ["activeTab", "contextMenus"],
+  "permissions": ["activeTab", "contextMenus", "scripting"],
   "background": {
     "service_worker": "background.js"
   },
@@ -12,13 +12,13 @@
     {
       "matches": ["<all_urls>"],
       "js": ["ElementPicker.js", "contentScript.js"],
-      "css": ["ElementPicker.css", "POPElement.css"],
+      "css": ["ElementPicker.css"],
       "all_frames": false
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["POPElement.css", "assets/icon128_popped.png"],
+      "resources": ["POPElement.css", "assets/icon128_popped.png", "assets/icon128_on.png"],
       "matches": ["<all_urls>"]
     }
   ],
