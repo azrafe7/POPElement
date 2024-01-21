@@ -3,6 +3,9 @@
 let manifest = chrome.runtime.getManifest();
 console.log(manifest.name + " v" + manifest.version);
 
+let DEBUG = true;
+let INJECT_CSS = true;
+
 let size = {
   width: 800,
   height: 600,
@@ -171,7 +174,7 @@ chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
     const tabId = sender.tab.id;
     const elementSize = { width:parseInt(data.width), height:parseInt(data.height) + 40 };
     let options = { tabId:tabId, ...elementSize};
-    // injectCSS(tabId, true);
+    if (INJECT_CSS) injectCSS(tabId, true);
     // openPopupWindow(options);
   }
 });

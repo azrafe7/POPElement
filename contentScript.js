@@ -26,6 +26,8 @@
 
   let lastTriggeredElement = null;
 
+  let oldStylesByElement = new Map(); // ['element':[{'style':'name', 'value':'value', 'priority':'value'}]];
+
   let pipWindow = null;
 
   /* if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -100,6 +102,36 @@
     const classesSelector = classes.map((c) => "." + c).join(",");
     const elements = document.querySelectorAll(classesSelector);
     for (const el of elements) el.classList.remove(...classes);
+    
+    resetOldStyles();
+  }
+
+  function applyStylesTo(selector, styles) {
+    let elements = Array.from(document.querySelectorAll(selector));
+    for (const el of elements) {
+      let stylesList = null;
+      if (!oldStylesByElement.has(el)) {
+        oldStylesByElement.set(el, []);
+      }
+      stylesList = oldStylesByElement.get(el);
+      
+      for (const style of styles) {
+        let [styleName, styleValue] = Object.entries(style)[0];
+        const oldStyleValue = el.style.getPropertyValue(styleName);
+        const oldStylePriority = el.style.getPropertyPriority(styleName);
+        stylesList.push({'style':styleName, 'value':oldStyleValue, 'priority':oldStylePriority});
+        el.style.setProperty(styleName, styleValue, 'important');
+      }
+    }
+  }
+  
+  function resetOldStyles() {
+    for (const [el, stylesList] of oldStylesByElement.entries()) {
+      for (const style of stylesList) {
+        el.style.setProperty(style.style, style.value, style.priority);
+      }
+    }
+    oldStylesByElement.clear();
   }
 
   function popWindow(target, options={}) {
@@ -118,6 +150,10 @@
     for (const sibling of ancestorsSiblings) sibling.classList.add('--non-popped-element');
     
     for (const ancestor of ancestors) ancestor.style.setProperty('margin', '0', 'important');
+    
+    oldStylesByElement.clear();
+    let elementsToStyleSelector = 'html, body';
+    applyStylesTo(elementsToStyleSelector, [{'overflow':'hidden'}]);
     
     const rect = target.getBoundingClientRect();
     chrome.runtime.sendMessage({ event:'popOutElement', data:rect });    
