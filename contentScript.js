@@ -153,7 +153,11 @@
     
     oldStylesByElement.clear();
     let elementsToStyleSelector = 'html, body';
-    applyStylesTo(elementsToStyleSelector, [{'overflow':'hidden'}]);
+    // applyStylesTo(elementsToStyleSelector, [{'overflow':'hidden'}]);
+    
+    applyStylesTo('.--popped-element-ancestor', [{ 'overflow':'hidden' }, { 'margin':'0' }, { 'padding':'0' }]);
+    applyStylesTo('.--non-popped-element', [{ 'display':'none' }, { 'visibility':'hidden' }]);
+    applyStylesTo('.--popped-element', [{ 'display':'block' }, { 'position':'fixed' }, { 'left':'0' }, { 'top':'0' }]);
     
     const rect = target.getBoundingClientRect();
     chrome.runtime.sendMessage({ event:'popOutElement', data:rect });    
