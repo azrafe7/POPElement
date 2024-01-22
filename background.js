@@ -4,7 +4,7 @@ let manifest = chrome.runtime.getManifest();
 console.log(manifest.name + " v" + manifest.version);
 
 let DEBUG = true;
-let INJECT_CSS = true;
+let INJECT_CSS = false;
 
 let size = {
   width: 800,
