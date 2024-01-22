@@ -97,13 +97,13 @@
     return allSiblings;
   }
 
-  function removeCSS() {
+  function removeCSS() {    
+    resetOldStyles(); // reset styles before removing classes
+    
     const classes = ['--popped-element', '--non-popped-element', '--popped-element-ancestor'];
     const classesSelector = classes.map((c) => "." + c).join(",");
     const elements = document.querySelectorAll(classesSelector);
     for (const el of elements) el.classList.remove(...classes);
-    
-    resetOldStyles();
   }
 
   function applyStylesTo(selector, styles) {
@@ -145,12 +145,12 @@
     let ancestors = getAncestorsOf(target);
     let ancestorsSiblings = getSiblingsOf([target].concat(ancestors));
     
+    // add classes
     target.classList.add('--popped-element');
     for (const ancestor of ancestors) ancestor.classList.add('--popped-element-ancestor');
     for (const sibling of ancestorsSiblings) sibling.classList.add('--non-popped-element');
     
-    for (const ancestor of ancestors) ancestor.style.setProperty('margin', '0', 'important');
-    
+    // apply styles
     oldStylesByElement.clear();
     let elementsToStyleSelector = 'html, body';
     // applyStylesTo(elementsToStyleSelector, [{'overflow':'hidden'}]);
@@ -158,6 +158,8 @@
     applyStylesTo('.--popped-element-ancestor', [{ 'overflow':'hidden' }, { 'margin':'0' }, { 'padding':'0' }]);
     applyStylesTo('.--non-popped-element', [{ 'display':'none' }, { 'visibility':'hidden' }]);
     // applyStylesTo('.--popped-element', [{ 'display':'block' }, { 'position':'fixed' }, { 'left':'0' }, { 'top':'0' }]);
+    
+    debug.log(oldStylesByElement);
     
     const rect = target.getBoundingClientRect();
     chrome.runtime.sendMessage({ event:'popOutElement', data:rect });    
