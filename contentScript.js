@@ -103,7 +103,15 @@
     const classes = ['--popped-element', '--non-popped-element', '--popped-element-ancestor'];
     const classesSelector = classes.map((c) => "." + c).join(",");
     const elements = document.querySelectorAll(classesSelector);
+    const poppedElement = document.querySelector('.--popped-element');
     for (const el of elements) el.classList.remove(...classes);
+    
+    debug.log("scrollIntoView", poppedElement);
+    if (poppedElement) {
+      setTimeout(() => { // add a little delay before scrollIntoView
+        poppedElement.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    }
   }
 
   function applyStylesTo(selector, styles) {
@@ -156,13 +164,15 @@
     // applyStylesTo(elementsToStyleSelector, [{'overflow':'hidden'}]);
     
     applyStylesTo('.--popped-element-ancestor', [{ 'overflow':'hidden' }, { 'margin':'0' }, { 'padding':'0' }]);
+    applyStylesTo('.--popped-element-ancestor', [{ 'display':'block' }]);
     applyStylesTo('.--non-popped-element', [{ 'display':'none' }, { 'visibility':'hidden' }]);
     // applyStylesTo('.--popped-element', [{ 'display':'block' }, { 'position':'fixed' }, { 'left':'0' }, { 'top':'0' }]);
     
     debug.log(oldStylesByElement);
     
-    const rect = target.getBoundingClientRect();
-    chrome.runtime.sendMessage({ event:'popOutElement', data:rect });    
+    const size = { width:elementPicker.hoverInfo.width, height:elementPicker.hoverInfo.height };
+    debug.log('popOutElement', size);
+    chrome.runtime.sendMessage({ event:'popOutElement', data:size });
   }
 
   function createPicker() {
@@ -184,7 +194,7 @@
         
         elementPicker.enabled = !event.triggered;
         
-        if (!elementPicker.enabled) closePicker();
+        closePicker();
       })
     }
   }
@@ -208,6 +218,11 @@
       chrome.runtime.sendMessage({event: 'popOutPage', data: null});
     } else if (event === "removeCSS" || event === "popInPage") {
       removeCSS();
+    } else if (event === "scrollIntoView") {
+      if (lastTriggeredElement) {
+        lastTriggeredElement.scrollIntoView({ behavior: "smooth" });
+      }
+      lastTriggeredElement = null;
     } else if (event === 'checkState') {
       sendResponse({event: 'setState', data: { allowed:true }});
     }

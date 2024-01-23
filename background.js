@@ -175,7 +175,15 @@ chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
     const elementSize = { width:parseInt(data.width), height:parseInt(data.height) + 40 };
     let options = { tabId:tabId, ...elementSize};
     if (INJECT_CSS) injectCSS(tabId, true);
-    // openPopupWindow(options);
+    console.log('popOutElement', options);
+    openPopupWindow(options);
+    sendMessageToTab(
+      tabId,
+      {
+        event: "scrollIntoView",
+        data: null,
+      }
+    );
   }
 });
 
