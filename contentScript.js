@@ -26,6 +26,8 @@
 
   let lastTriggeredElement = null;
 
+  const scrollIntoViewOptions = { behavior:"smooth", block:"center", inline:"center" };
+
   let oldStylesByElement = new Map(); // ['element':[{'style':'name', 'value':'value', 'priority':'value'}]];
 
   let pipWindow = null;
@@ -109,7 +111,7 @@
     debug.log("scrollIntoView", poppedElement);
     if (poppedElement) {
       setTimeout(() => { // add a little delay before scrollIntoView
-        poppedElement.scrollIntoView({ behavior: "smooth" });
+        poppedElement.scrollIntoView(scrollIntoViewOptions);
       }, 100);
     }
   }
@@ -220,7 +222,7 @@
       removeCSS();
     } else if (event === "scrollIntoView") {
       if (lastTriggeredElement) {
-        lastTriggeredElement.scrollIntoView({ behavior: "smooth" });
+        lastTriggeredElement.scrollIntoView(scrollIntoViewOptions);
       }
       lastTriggeredElement = null;
     } else if (event === 'checkState') {
