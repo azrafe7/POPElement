@@ -1,3 +1,5 @@
+/* DEBUG - not used at the moment: using inline styles with reset callback instead (see applyStylesTo()) */
+
 .--popped-element {
   display: block !important;
   background-color: red;
