@@ -274,12 +274,12 @@ async function setState(allowed, tabId=null) {
   
   if (!allowed) {
     actionTitle = actionTitle + ' (DISABLED for this site)';
-    chrome.action.setIcon({ path:'assets/icon128_popped.png' });
+    // chrome.action.setIcon({ path:'assets/icon128_popped.png' });
     chrome.action.setTitle({tabId: tabId, title: actionTitle});
     chrome.action.disable(tabId);
     updateContextMenu({picker:allowed, reattach:showReattach});
   } else {
-    chrome.action.setIcon({ path:'assets/icon128.png' });
+    // chrome.action.setIcon({ path:'assets/icon128.png' });
     chrome.action.setTitle({tabId: tabId, title: actionTitle});
     chrome.action.enable(tabId);
     updateContextMenu({picker:allowed, reattach:showReattach});
