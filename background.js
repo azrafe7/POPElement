@@ -66,6 +66,7 @@ async function reattachTab(tab) {
   }
   
   let reattachedTab = await chrome.tabs.move(tab.id, { windowId:win.id, index:-1 });
+  await chrome.windows.update(win.id, { focused:true });
   chrome.tabs.update(reattachedTab.id, { active:true });
   updateContextMenu({reattach:false});
 }
