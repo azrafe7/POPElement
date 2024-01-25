@@ -152,6 +152,12 @@
     if (elementPicker) debug.log("[POPElement:CTX] info:", elementPicker.hoverInfo);
     lastTriggeredElement = target;
     
+    // popOutPage if target is the root element
+    if (target.parentElement == null) {
+      chrome.runtime.sendMessage({event: 'popOutPage', data: null});
+      return;
+    }
+    
     let ancestors = getAncestorsOf(target);
     let ancestorsSiblings = getSiblingsOf([target].concat(ancestors));
     

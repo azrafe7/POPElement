@@ -187,6 +187,9 @@ chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
         data: responseData,
       }
     );
+  } else if (event === 'popOutPage') {
+    let options = { tabId:sender.tab.id };
+    openPopupWindow(options);
   }
 });
 
