@@ -3,7 +3,7 @@
 let manifest = chrome.runtime.getManifest();
 console.log(manifest.name + " v" + manifest.version);
 
-let DEBUG = true;
+let DEBUG = false;
 let INJECT_CSS = false;
 
 let size = {
@@ -86,7 +86,7 @@ function updateContextMenu(options={}) {
     } else {
       
       // remove CSS (debug)
-      if (true) {
+      if (DEBUG) {
         chrome.contextMenus.create({
           id: POPRemoveCSSContextId,
           title: "Remove CSS...",
