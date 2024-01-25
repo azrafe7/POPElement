@@ -162,19 +162,31 @@
     
     // apply styles
     oldStylesByElement.clear();
-    let elementsToStyleSelector = 'html, body';
-    // applyStylesTo(elementsToStyleSelector, [{'overflow':'hidden'}]);
     
-    applyStylesTo('.--popped-element-ancestor', [{ 'overflow':'hidden' }, { 'margin':'0' }, { 'padding':'0' }]);
+    const elementSize = { width:elementPicker.hoverInfo.width, height:elementPicker.hoverInfo.height };
+    const screenAvailSize = { width: window.screen.availWidth, height: window.screen.availHeight };
+
+    const ancestorOverflowX = {'overflow-x':'hidden'};
+    const ancestorOverflowY = {'overflow-y':'hidden'};
+    if (elementSize.width > screenAvailSize.width) {
+      elementSize.width = screenAvailSize.width;
+      ancestorOverflowX['overflow-x'] = 'auto';
+    }
+    if (elementSize.height > screenAvailSize.height) {
+      elementSize.height = screenAvailSize.height;
+      ancestorOverflowY['overflow-y'] = 'auto';
+    }
+
+    applyStylesTo('.--popped-element-ancestor', [ancestorOverflowX, ancestorOverflowY, { 'margin':'0' }, { 'padding':'0' }]);
     applyStylesTo('.--popped-element-ancestor', [{ 'display':'block' }]);
     applyStylesTo('.--non-popped-element', [{ 'display':'none' }, { 'visibility':'hidden' }]);
     // applyStylesTo('.--popped-element', [{ 'display':'block' }, { 'position':'fixed' }, { 'left':'0' }, { 'top':'0' }]);
     
     debug.log(oldStylesByElement);
     
-    const size = { width:elementPicker.hoverInfo.width, height:elementPicker.hoverInfo.height };
-    debug.log('popOutElement', size);
-    chrome.runtime.sendMessage({ event:'popOutElement', data:size });
+    let data = { elementSize:elementSize, screenAvailSize:screenAvailSize };
+    debug.log('popOutElement', data);
+    chrome.runtime.sendMessage({ event:'popOutElement', data });
   }
 
   function createPicker() {

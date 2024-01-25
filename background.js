@@ -172,7 +172,10 @@ chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
 
   if (event === 'popOutElement') {
     const tabId = sender.tab.id;
-    const elementSize = { width:parseInt(data.width), height:parseInt(data.height) + 40 };
+    const elementSize = { width:parseInt(data.elementSize.width), height:parseInt(data.elementSize.height) + 40 };
+    const screenAvailSize = { width:parseInt(data.screenAvailSize.width), height:parseInt(data.screenAvailSize.height) };
+    console.log('screenAvailSize', screenAvailSize);
+    let responseData = null;
     let options = { tabId:tabId, ...elementSize};
     if (INJECT_CSS) injectCSS(tabId, true);
     console.log('popOutElement', options);
@@ -181,7 +184,7 @@ chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
       tabId,
       {
         event: "scrollIntoView",
-        data: null,
+        data: responseData,
       }
     );
   }
