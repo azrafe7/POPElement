@@ -29,7 +29,7 @@ async function sendMessageToTab(tabId, msg) {
   );
 }
 
-function openPopupWindow(options) {
+async function openPopupWindow(options) {
   const defaults = {
     type: 'popup',
     width: size.width,
@@ -40,6 +40,8 @@ function openPopupWindow(options) {
   };
   options = { ...defaults, ...options };
 
+  let tab = await chrome.tabs.get(options.tabId);
+  if (tab.incognito) options.incognito = true;
   chrome.windows.create(options, (win) => {
     console.log('created', win, 'tab', options?.tabId);
   });
@@ -51,6 +53,7 @@ async function reattachTab(tab) {
   let win = null;
   try {
     win = await chrome.windows.getLastFocused(options);
+    if (win.incognito != tab.incognito) win = null;
   } catch(error) {
     // no last-focused window
     win = null;
@@ -58,10 +61,11 @@ async function reattachTab(tab) {
   let allWindows = await chrome.windows.getAll(options);
   console.log('last win', win, allWindows);
   if (!win) {
-    if (allWindows?.length > 0) {
-      win = allWindows[allWindows.length - 1];
+    let filteredWindows = allWindows.filter((w) => w.incognito == tab.incognito);
+    if (filteredWindows?.length > 0) {
+      win = filteredWindows[filteredWindows.length - 1];
     } else {
-      win = await chrome.windows.create({ tabId:tab.id });
+      win = await chrome.windows.create({ tabId:tab.id, incognito:tab.incognito });
     }
   }
   
