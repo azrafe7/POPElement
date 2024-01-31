@@ -1,7 +1,7 @@
 {
   "name": "POPElement",
   "version": "0.1.4",
-  "description": "Pop-Out-Page or a single element into a separate window.",
+  "description": "Pop out the current page (or an element) into a separate window.",
   "manifest_version": 3,
   "permissions": ["activeTab", "contextMenus", "scripting"],
   "background": {
