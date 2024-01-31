@@ -8,7 +8,7 @@ You can find it here: https://chromewebstore.google.com/detail/popelement/nmbcoc
 # Overview
 Pop out the current page (or an element) into a separate window.
 
-Click on the extension icon to detach the current tab and open it as a separate window.
+Click on the extension icon to detach the current tab and open it as a separate window (a clean popout window, without bookmarks or back/forward buttons, etc.).
 Or right-click the extension icon and select "Toggle picker..." to activate a picker that let's you visually highlight and choose which element to pop-out.
 
 With the picker active:
