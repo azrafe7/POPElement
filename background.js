@@ -36,7 +36,7 @@ async function openPopupWindow(options) {
     height: size.height,
     top: offset.top,
     left: offset.left,
-    setSelfAsOpener:true,
+    setSelfAsOpener: true,
   };
   options = { ...defaults, ...options };
 
@@ -252,6 +252,7 @@ async function checkState(tabId=null) {
     tabId = activeTab?.id;
   }
   console.log('checkState for tabId', tabId);
+  if (!tabId) return;
   
   chrome.tabs.sendMessage(
     tabId,

@@ -252,6 +252,10 @@
 
   // close picker when pressing ESC
   keyEventContainer.addEventListener('keyup', function(e) {
+    if (elementPicker?.enabled && ['Escape', 'Space', 'KeyA', 'KeyQ'].includes(e.code)) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }
     if (e.code === 'Escape' && elementPicker?.enabled) {
       closePicker();
       debug.log("[POPElement:CTX] user aborted");
@@ -259,13 +263,16 @@
   }, true);
 
   keyEventContainer.addEventListener('keydown', function(e) {
+    if (elementPicker?.enabled && ['Escape', 'Space', 'KeyA', 'KeyQ'].includes(e.code)) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }
     let target = null;
     let newTarget = null;
     let newTargetIdx = null;
     if (e.code === 'Space' && elementPicker?.enabled) {
       target = elementPicker.hoverInfo.element;
       debug.log("[POPElement:CTX] space-clicked target:", target);
-      e.preventDefault();
       e.triggered = true; // checked inside action callback
       elementPicker.trigger(e);
     } else if (elementPicker?.enabled && (e.code === 'KeyQ' || e.code === 'KeyA')) {
@@ -335,7 +342,6 @@
       if (newTarget && newTarget != target) {
         elementPicker.highlight(newTarget);
       }
-      e.preventDefault();
     }
   }, true);
 
