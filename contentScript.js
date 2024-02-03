@@ -2,7 +2,7 @@
 
 (async () => {
   
-  const DEBUG = false;
+  const DEBUG = true;
   let debug = {
     log: DEBUG ? console.log.bind(console) : () => {} // log or NO_OP
   }
@@ -108,7 +108,7 @@
     const poppedElement = document.querySelector('.--popped-element');
     for (const el of elements) el.classList.remove(...classes);
     
-    debug.log("scrollIntoView", poppedElement);
+    debug.log("[POPElement:CTX] scrollIntoView", poppedElement);
     if (poppedElement) {
       setTimeout(() => { // add a little delay before scrollIntoView
         poppedElement.scrollIntoView(scrollIntoViewOptions);
@@ -165,10 +165,19 @@
     target.classList.add('--popped-element');
     for (const ancestor of ancestors) ancestor.classList.add('--popped-element-ancestor');
     for (const sibling of ancestorsSiblings) sibling.classList.add('--non-popped-element');
+    let parentElement = ancestors.length >= 1 ? ancestors[0] : null;
+    if (parentElement) {
+      parentElement.classList.add('--popped-element-parent');
+    }
+    
+    debug.log('[POPElement:CTX] ancestors:', ancestors);
+    debug.log('[POPElement:CTX] ancestorsSiblings:', ancestorsSiblings);
+    
+    let ancestorsPosition = ancestors.map((el) => ({ el:el, position:getComputedStyle(el)['position'] }));
+    debug.log('[POPElement:CTX] ancestorsPosition:', ancestorsPosition);
     
     // apply styles
-    oldStylesByElement.clear();
-    
+    oldStylesByElement.clear();    
     const elementSize = { width:elementPicker.hoverInfo.width, height:elementPicker.hoverInfo.height };
     const screenAvailSize = { width: window.screen.availWidth, height: window.screen.availHeight };
 
@@ -186,12 +195,15 @@
     applyStylesTo('.--popped-element-ancestor', [ancestorOverflowX, ancestorOverflowY, { 'margin':'0' }, { 'padding':'0' }]);
     applyStylesTo('.--popped-element-ancestor', [{ 'display':'block' }]);
     applyStylesTo('.--non-popped-element', [{ 'display':'none' }, { 'visibility':'hidden' }]);
+    if (parentElement && getComputedStyle(parentElement)['position'] === 'relative') {
+      applyStylesTo('.--popped-element-parent', [{ 'position':'fixed' }]);
+    }
     // applyStylesTo('.--popped-element', [{ 'display':'block' }, { 'position':'fixed' }, { 'left':'0' }, { 'top':'0' }]);
     
-    debug.log(oldStylesByElement);
+    debug.log("[POPElement:CTX] oldStylesByElement:", oldStylesByElement);
     
     let data = { elementSize:elementSize, screenAvailSize:screenAvailSize };
-    debug.log('popOutElement', data);
+    debug.log('[POPElement:CTX] popOutElement:', data);
     chrome.runtime.sendMessage({ event:'popOutElement', data });
   }
 
@@ -220,7 +232,7 @@
   }
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    debug.log("[POPElement:CTX]", msg);
+    debug.log("[POPElement:CTX] onMessage:", msg);
     const { event, data } = msg;
 
     if (event === "togglePicker") {
@@ -293,7 +305,7 @@
           video.style.setProperty(POINTER_EVENTS, 'all', 'important');
         }
       }
-      debug.log(`fixedVideosMap (${fixedVideosMap}):`, fixedVideosMap)
+      debug.log(`[POPElement:CTX] fixedVideosMap (${fixedVideosMap}):`, fixedVideosMap)
       
       let innermostTargetAtPoint = null; // first non-picker-iframe element
       
@@ -321,8 +333,8 @@
         ancestorsAndSelf.push(el);
       }
       
-      debug.log('ancestors:', ancestorsAndSelf);
-      debug.log('elementsAtPoint:', [elementPicker._lastClientX, elementPicker._lastClientY], elementsAtPoint);
+      debug.log('[POPElement:CTX] ancestors:', ancestorsAndSelf);
+      debug.log('[POPElement:CTX] elementsAtPoint:', [elementPicker._lastClientX, elementPicker._lastClientY], elementsAtPoint);
       
       let elementsToMerge = elementsAtPoint;
       
@@ -341,7 +353,7 @@
           }
         }
       }
-      debug.log('mergeAtIndices:', mergeAtIndices);
+      debug.log('[POPElement:CTX] mergeAtIndices:', mergeAtIndices);
       for (let mergeInfo of mergeAtIndices.toReversed()) {
         const {element, index} = mergeInfo;
         if (index == -1) {
@@ -371,7 +383,7 @@
         }*/
         debug.log("[POPElement:CTX] A-pressed new ↓ target:", newTarget);
       }
-      debug.log(`${newTargetIdx}/${ancestorsAndSelfLength - 1}`, 'newTarget', targetHasPrev, targetHasNext, newTarget, ancestorsAndSelf);
+      debug.log(`[POPElement:CTX] ${newTargetIdx}/${ancestorsAndSelfLength - 1}`, 'prev:', targetHasPrev, 'next:', targetHasNext, 'newTarget:', newTarget, 'ancestorsAndSelf:', ancestorsAndSelf);
       if (newTarget && newTarget != target) {
         elementPicker.highlight(newTarget);
       }
