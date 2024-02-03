@@ -1,6 +1,6 @@
 {
   "name": "POPElement",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Pop out the current page (or an element) into a separate window.",
   "manifest_version": 3,
   "permissions": ["activeTab", "contextMenus", "scripting"],

@@ -1,5 +1,8 @@
  # CHANGELOG
 
+ ### v0.1.5 (03 Feb 2024)
+ - update meta
+ 
  ### v0.1.4 (31 Jan 2024)
  - avoid duplicates while merging (as elementsFromPoint() could return the same element more than once)
  - preventDefault and stopImmediatePropagation on keyUp/Dow
