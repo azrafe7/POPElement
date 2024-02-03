@@ -23,7 +23,7 @@ it still may not correctly guess what to hide and how, but using the "Re-attach 
 
 
 REPO: https://github.com/azrafe7/POPElement
-<br/>
+
 Please report bugs/feature requests at https://github.com/azrafe7/POPElement/issues
-<br/>
+
 CHANGELOG: https://github.com/azrafe7/POPElement/blob/main/CHANGELOG.md
