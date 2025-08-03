@@ -29,7 +29,7 @@ async function sendMessageToTab(tabId, msg) {
   );
 }
 
-async function openPopupWindow(options) {
+async function openPopupWindow(options, event) {
   const defaults = {
     type: 'popup',
     width: size.width,
@@ -42,6 +42,9 @@ async function openPopupWindow(options) {
 
   let tab = await chrome.tabs.get(options.tabId);
   if (tab.incognito) options.incognito = true;
+  if (event === "popOutElement") {
+    let clonedTab = chrome.tabs.duplicate(options.tabId);
+  }
   chrome.windows.create(options, (win) => {
     console.log('created', win, 'tab', options?.tabId);
   });
@@ -184,7 +187,7 @@ chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
     let options = { tabId:tabId, ...elementSize};
     if (INJECT_CSS) injectCSS(tabId, true);
     console.log('popOutElement', options);
-    openPopupWindow(options);
+    openPopupWindow(options, event);
     sendMessageToTab(
       tabId,
       {
@@ -194,7 +197,7 @@ chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
     );
   } else if (event === 'popOutPage') {
     let options = { tabId:sender.tab.id };
-    openPopupWindow(options);
+    openPopupWindow(options, event);
   }
 });
 
