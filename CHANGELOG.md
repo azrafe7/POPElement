@@ -1,5 +1,13 @@
  # CHANGELOG
 
+ ### v0.1.9 (03 Nov 2026)
+ - remember tab/win position
+ - add shortcut commands
+ - refactor/cleanup/bug fixing
+
+ ### v0.1.6 (03 Aug 2025)
+ - duplicate tab on popOutElement event
+ 
  ### v0.1.5 (03 Feb 2024)
  - update meta
  
