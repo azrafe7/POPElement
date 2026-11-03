@@ -45,7 +45,9 @@ async function openPopupWindow(options, event) {
   // remember where the tab came from, so it can be re-attached at the same place
   rememberOrigin(tab, event === "popOutElement");
   if (event === "popOutElement") {
-    let clonedTab = chrome.tabs.duplicate(options.tabId);
+    let clonedTab = await chrome.tabs.duplicate(options.tabId);
+    // remember the clone (it stays in the source window), so the element can be re-attached just after it
+    setOriginCloneId(options.tabId, clonedTab?.id);
   }
   chrome.windows.create(options, (win) => {
     console.log('created', win, 'tab', options?.tabId);
@@ -82,6 +84,13 @@ function rememberOrigin(tab, isElement=false) {
   saveOrigins();
 }
 
+function setOriginCloneId(tabId, cloneId) {
+  const origin = originsByTabId.get(tabId);
+  if (!origin || cloneId == null) return;
+  origin.cloneId = cloneId;
+  saveOrigins();
+}
+
 function forgetOrigin(tabId) {
   originsByTabId.delete(tabId);
   saveOrigins();
@@ -108,6 +117,23 @@ async function reattachTab(tab) {
   if (win) {
     // keep the original index (limited to the number of tabs now in that window)
     index = Math.min(origin.index, win.tabs?.length ?? origin.index);
+    
+    if (origin.isElement) {
+      // an element goes just after its source tab (the clone left behind when popping out)
+      let sourceTab = null;
+      try {
+        if (origin.cloneId != null) sourceTab = await chrome.tabs.get(origin.cloneId);
+      } catch(error) {
+        // clone tab no longer exists
+      }
+      if (sourceTab && sourceTab.windowId === win.id) {
+        index = sourceTab.index + 1;
+      } else {
+        // source tab is gone: use the original index (the clone took its place)
+        index = origin.index + 1;
+      }
+      index = Math.min(index, win.tabs?.length ?? index);
+    }
   }
   try {
     if (!win) win = await chrome.windows.getLastFocused(options);
@@ -278,7 +304,7 @@ async function handleReattach(tab) {
 // keyboard shortcut (assignable in chrome://extensions/shortcuts)
 chrome.commands.onCommand.addListener(async (command, tab) => {
   console.log("[POPElement:BG] onCommand:", command, tab);
-  if (command !== "reattach-as-tab") return;
+  if (!["reattach-as-tab", "toggle-element-picker"].includes(command)) return;
 
   if (!tab?.id) {
     [tab] = await chrome.tabs.query({active: true, currentWindow: true});
@@ -287,13 +313,24 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
     console.warn(`[POPElement:BG] Whoops... No valid tab.id found.`);
     return;
   }
-  // only popped-out (popup type) windows can be re-attached
-  const win = await chrome.windows.get(tab.windowId);
-  if (win?.type !== 'popup') {
-    console.log("[POPElement:BG] not a popup window, nothing to re-attach");
-    return;
+
+  if (command === "toggle-element-picker") {
+    sendMessageToTab(
+      tab.id,
+      {
+        event: "togglePicker",
+        data: null,
+      }
+    );
+  } else if (command === "reattach-as-tab") {
+    // only popped-out (popup type) windows can be re-attached
+    const win = await chrome.windows.get(tab.windowId);
+    if (win?.type !== 'popup') {
+      console.log("[POPElement:BG] not a popup window, nothing to re-attach");
+      return;
+    }
+    handleReattach(tab);
   }
-  handleReattach(tab);
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
