@@ -3,7 +3,7 @@ Pop out the current page (or an element) into a separate window.
 
 [![POPElement](./webstore_assets/screenshot_01.png)](./webstore_assets/screenshot_01.png)
 
-You can find it here: https://chromewebstore.google.com/detail/popelement/nmbcocahjpeifaihfhlehgdcpkalajgl
+You can find it here: https://chromewebstore.google.com/detail/popelement/cbkjfkgogipoonckgoppiofacaocpfdj
 
 # Overview
 Click on the extension icon to detach the current tab and open it as a separate window (a clean popout window, without bookmarks or back/forward buttons, etc.).
