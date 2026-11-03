@@ -1,5 +1,8 @@
  # CHANGELOG
 
+ ### v0.1.10 (03 Nov 2026)
+ - restore removeCss event
+
  ### v0.1.9 (03 Nov 2026)
  - remember tab/win position
  - add shortcut commands
