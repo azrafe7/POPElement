@@ -3,11 +3,15 @@
 const manifest = chrome.runtime.getManifest();
 console.log(manifest.name + " v" + manifest.version);
 
+const DEBUG = false; // shows the "Remove CSS..." entry in the action context menu
+const INJECT_CSS = false; // inject/remove POPElement.css when popping out an element/re-attaching a page
+
 // event names exchanged with contentScript.js (keep in sync)
 const EVENTS = {
   POP_OUT_ELEMENT: 'popOutElement',
   POP_OUT_PAGE: 'popOutPage',
   POP_IN_PAGE: 'popInPage',
+  REMOVE_CSS: 'removeCSS',
   TOGGLE_PICKER: 'togglePicker',
   SCROLL_INTO_VIEW: 'scrollIntoView',
   CHECK_STATE: 'checkState',
@@ -47,6 +51,27 @@ async function getActiveTab() {
 // use the tab passed in by an event if it is valid, otherwise fall back to the active tab
 async function resolveTab(tab) {
   return tab?.id > 0 ? tab : await getActiveTab();
+}
+
+// insert (or remove) POPElement.css in the given tab
+async function injectCSS(tabId, insert=true) {
+  const injection = {
+    files: ['POPElement.css'],
+    target: {
+      tabId: tabId,
+      allFrames: false
+    }
+  };
+  try {
+    if (insert) {
+      await chrome.scripting.insertCSS(injection);
+    } else {
+      await chrome.scripting.removeCSS(injection);
+    }
+    console.log("css " + (insert ? "inserted" : "removed") + "!");
+  } catch(error) {
+    console.warn('Whoops...', error.message);
+  }
 }
 
 // origin (window and index) of popped-out tabs: tabId -> { windowId, index, isElement, cloneId }
@@ -210,6 +235,7 @@ async function handleReattach(tab) {
   const isElement = originsByTabId.get(tab.id)?.isElement ?? false;
   await reattachTab(tab);
   if (!isElement) {
+    if (INJECT_CSS) injectCSS(tab.id, false);
     sendMessageToTab(tab.id, { event:EVENTS.POP_IN_PAGE, data:null });
   }
 }
@@ -218,6 +244,7 @@ async function handleReattach(tab) {
 const otherContexts = ["page", "frame", "selection", "link", "editable", "image", "video", "audio"]; // all but "action" context
 const actionContext = ["action"]; // only "action" context
 const POPPickerContextId = "POPElement_onTogglePickerContextMenu";
+const POPRemoveCSSContextId = "POPElement_onRemoveCSSContextMenu";
 const POPReattachContextId = "POPElement_onReattachContextMenu";
 
 function createMenuItem(id, title, contexts) {
@@ -241,6 +268,10 @@ function updateContextMenu(options={}) {
 
   contextMenuQueue = contextMenuQueue.then(async () => {
     await chrome.contextMenus.removeAll();
+    // remove CSS (debug)
+    if (DEBUG) {
+      createMenuItem(POPRemoveCSSContextId, "Remove CSS...", actionContext);
+    }
     // toggle picker
     if (options.picker) {
       createMenuItem(POPPickerContextId, "Toggle element picker...", actionContext);
@@ -272,6 +303,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const screenAvailSize = { width:parseInt(data.screenAvailSize.width), height:parseInt(data.screenAvailSize.height) };
     console.log('screenAvailSize', screenAvailSize);
     const windowOptions = { tabId:tabId, ...elementSize };
+    if (INJECT_CSS) injectCSS(tabId, true);
     console.log('popOutElement', windowOptions);
     openPopupWindow(windowOptions, event);
     sendMessageToTab(tabId, { event:EVENTS.SCROLL_INTO_VIEW, data:null });
@@ -319,6 +351,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   } else if (info.menuItemId === POPReattachContextId) {
     console.log("[POPElement:BG] re-attach as tab...", tab.id);
     handleReattach(tab);
+  } else if (info.menuItemId === POPRemoveCSSContextId) {
+    console.log("[POPElement:BG] remove CSS...", tab.id);
+    injectCSS(tab.id, false);
+    sendMessageToTab(tab.id, { event:EVENTS.REMOVE_CSS, data:null });
   }
 });
 

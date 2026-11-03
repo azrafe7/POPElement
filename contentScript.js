@@ -15,6 +15,7 @@
     POP_OUT_ELEMENT: 'popOutElement',
     POP_OUT_PAGE: 'popOutPage',
     POP_IN_PAGE: 'popInPage',
+    REMOVE_CSS: 'removeCSS',
     TOGGLE_PICKER: 'togglePicker',
     SCROLL_INTO_VIEW: 'scrollIntoView',
     CHECK_STATE: 'checkState',
@@ -240,7 +241,7 @@
     } else if (event === EVENTS.POP_OUT_PAGE) {
       if (elementPicker?.enabled) closePicker();
       chrome.runtime.sendMessage({event: EVENTS.POP_OUT_PAGE, data: null});
-    } else if (event === EVENTS.POP_IN_PAGE) {
+    } else if (event === EVENTS.REMOVE_CSS || event === EVENTS.POP_IN_PAGE) {
       restorePage();
     } else if (event === EVENTS.SCROLL_INTO_VIEW) {
       if (lastTriggeredElement) {
