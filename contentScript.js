@@ -249,7 +249,7 @@
       if (elementPicker?.enabled) closePicker();
       chrome.runtime.sendMessage({event: 'popOutPage', data: null});
     } else if (event === "removeCSS" || event === "popInPage") {
-      removeCSS();
+      //removeCSS();
     } else if (event === "scrollIntoView") {
       if (lastTriggeredElement) {
         lastTriggeredElement.scrollIntoView(scrollIntoViewOptions);

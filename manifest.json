@@ -1,9 +1,9 @@
 {
   "name": "POPElement",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Pop out the current page (or an element) into a separate window.",
   "manifest_version": 3,
-  "permissions": ["activeTab", "contextMenus", "scripting"],
+  "permissions": ["activeTab", "contextMenus", "scripting", "storage"],
   "background": {
     "service_worker": "background.js"
   },
@@ -35,6 +35,12 @@
       "suggested_key": {
         "default": "Alt+O"
       }
+    },
+    "reattach-as-tab": {
+      "description": "Re-attach as tab"
+    },
+    "toggle-picker": {
+      "description": "Toggle picker"
     }
   }
 }

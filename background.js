@@ -36,12 +36,14 @@ async function openPopupWindow(options, event) {
     height: size.height,
     top: offset.top,
     left: offset.left,
-    setSelfAsOpener: true,
+    //setSelfAsOpener: true,
   };
   options = { ...defaults, ...options };
 
   let tab = await chrome.tabs.get(options.tabId);
   if (tab.incognito) options.incognito = true;
+  // remember where the tab came from, so it can be re-attached at the same place
+  rememberOrigin(tab, event === "popOutElement");
   if (event === "popOutElement") {
     let clonedTab = chrome.tabs.duplicate(options.tabId);
   }
@@ -51,11 +53,64 @@ async function openPopupWindow(options, event) {
 }
 
 
-async function reattachTab(tab) {
-  const options = { windowTypes:['normal'] };
-  let win = null;
+// origin (window and index) of popped-out tabs: tabId -> { windowId, index, isElement }
+// (kept in memory and, if available, in chrome.storage.session, as the service worker may get suspended)
+const ORIGINS_STORAGE_KEY = "POPElement_origins";
+const originsByTabId = new Map();
+
+async function loadOrigins() {
   try {
-    win = await chrome.windows.getLastFocused(options);
+    const stored = await chrome.storage?.session?.get(ORIGINS_STORAGE_KEY);
+    for (const [tabId, origin] of Object.entries(stored?.[ORIGINS_STORAGE_KEY] ?? {})) {
+      if (!originsByTabId.has(Number(tabId))) originsByTabId.set(Number(tabId), origin);
+    }
+  } catch(error) {
+    // storage permission not available: in-memory only
+  }
+}
+
+async function saveOrigins() {
+  try {
+    await chrome.storage?.session?.set({ [ORIGINS_STORAGE_KEY]: Object.fromEntries(originsByTabId) });
+  } catch(error) {
+    // storage permission not available: in-memory only
+  }
+}
+
+function rememberOrigin(tab, isElement=false) {
+  originsByTabId.set(tab.id, { windowId:tab.windowId, index:tab.index, isElement:isElement });
+  saveOrigins();
+}
+
+function forgetOrigin(tabId) {
+  originsByTabId.delete(tabId);
+  saveOrigins();
+}
+
+// find the window the tab originally came from (if it still exists and is compatible)
+async function getOriginWindow(tab, origin) {
+  if (!origin) return null;
+  try {
+    let win = await chrome.windows.get(origin.windowId, { populate:true });
+    if (win.type === 'normal' && win.incognito == tab.incognito) return win;
+  } catch(error) {
+    // original window no longer exists
+  }
+  return null;
+}
+
+async function reattachTab(tab) {
+  await loadOrigins();
+  const origin = originsByTabId.get(tab.id);
+  const options = { windowTypes:['normal'] };
+  let win = await getOriginWindow(tab, origin); // prefer the original window
+  let index = -1;
+  if (win) {
+    // keep the original index (limited to the number of tabs now in that window)
+    index = Math.min(origin.index, win.tabs?.length ?? origin.index);
+  }
+  try {
+    if (!win) win = await chrome.windows.getLastFocused(options);
     if (win.incognito != tab.incognito) win = null;
   } catch(error) {
     // no last-focused window
@@ -72,7 +127,8 @@ async function reattachTab(tab) {
     }
   }
   
-  let reattachedTab = await chrome.tabs.move(tab.id, { windowId:win.id, index:-1 });
+  let reattachedTab = await chrome.tabs.move(tab.id, { windowId:win.id, index:index });
+  forgetOrigin(tab.id);
   await chrome.windows.update(win.id, { focused:true });
   chrome.tabs.update(reattachedTab.id, { active:true });
   updateContextMenu({reattach:false});
@@ -201,6 +257,45 @@ chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
   }
 });
 
+// re-attach a popped-out tab (used by context menu and keyboard shortcut)
+async function handleReattach(tab) {
+  await loadOrigins();
+  // a popped-out element keeps its injected CSS/styles, only a full page gets cleaned up
+  const isElement = originsByTabId.get(tab.id)?.isElement ?? false;
+  await reattachTab(tab);
+  if (!isElement) {
+    injectCSS(tab.id, false);
+    sendMessageToTab(
+      tab.id,
+      {
+        event: "popInPage",
+        data: null,
+      }
+    );
+  }
+}
+
+// keyboard shortcut (assignable in chrome://extensions/shortcuts)
+chrome.commands.onCommand.addListener(async (command, tab) => {
+  console.log("[POPElement:BG] onCommand:", command, tab);
+  if (command !== "reattach-as-tab") return;
+
+  if (!tab?.id) {
+    [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+  }
+  if (!tab?.id) {
+    console.warn(`[POPElement:BG] Whoops... No valid tab.id found.`);
+    return;
+  }
+  // only popped-out (popup type) windows can be re-attached
+  const win = await chrome.windows.get(tab.windowId);
+  if (win?.type !== 'popup') {
+    console.log("[POPElement:BG] not a popup window, nothing to re-attach");
+    return;
+  }
+  handleReattach(tab);
+});
+
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   console.log("[POPElement:BG] onContextMenuClicked:", [info, tab]);
 
@@ -224,15 +319,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       );
     } else if (info.menuItemId === POPReattachContextId) {
       console.log("[POPElement:BG] re-attach as tab...", tab.id);
-      reattachTab(tab);
-      injectCSS(tab.id, false);
-      sendMessageToTab(
-        tab.id,
-        {
-          event: "popInPage",
-          data: null,
-        }
-      );
+      handleReattach(tab);
     } else if (info.menuItemId === POPRemoveCSSContextId) {
       console.log("[POPElement:BG] remove CSS...", tab.id);
       // reattachTab(tab);
