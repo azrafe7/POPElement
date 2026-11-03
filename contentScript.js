@@ -1,6 +1,6 @@
 "use strict";
 
-(async () => {
+(() => {
   
   const DEBUG = false;
   let debug = {
@@ -10,33 +10,30 @@
   let manifest = chrome.runtime.getManifest();
   console.log(manifest.name + " v" + manifest.version);
 
-  const HIGHLIGHT_RED = "rgba(250, 70, 60, 0.5)";
-  const HIGHLIGHT_GREEN = "rgba(17, 193, 12, 0.5)";
-  const HIGHLIGHT_ORANGE = "rgba(255, 175, 12, 0.5)";
-  const HIGHLIGHT_BLUE = "rgba(20, 80, 250, 0.5)";
-  const HIGHLIGHT_BG_COLOR = HIGHLIGHT_BLUE;
+  // event names exchanged with background.js (keep in sync)
+  const EVENTS = {
+    POP_OUT_ELEMENT: 'popOutElement',
+    POP_OUT_PAGE: 'popOutPage',
+    POP_IN_PAGE: 'popInPage',
+    TOGGLE_PICKER: 'togglePicker',
+    SCROLL_INTO_VIEW: 'scrollIntoView',
+    CHECK_STATE: 'checkState',
+  };
 
-  const OUTLINE_RED = "rgba(250, 70, 60, 0.75)";
-  const OUTLINE_GREEN = "rgba(17, 193, 12, 0.90)";
-  const OUTLINE_ORANGE = "rgba(255, 175, 0, 0.9)";
-  const OUTLINE_BLUE = "rgba(20, 140, 200, 0.9)";
-  const OUTLINE_COLOR = OUTLINE_BLUE;
+  // picker colors (other options: red rgba(250, 70, 60, ...), green rgba(17, 193, 12, ...), orange rgba(255, 175, 12, ...))
+  const HIGHLIGHT_BG_COLOR = "rgba(20, 80, 250, 0.5)";
+  const OUTLINE_COLOR = "rgba(20, 140, 200, 0.9)";
 
-  const CURSORS = ["crosshair", "copy"];
+  const PICKER_CURSOR = "crosshair";
+
+  // keys handled by the picker while it is active (the page must not see them)
+  const PICKER_KEYS = ['Escape', 'Space', 'KeyA', 'KeyQ'];
 
   let lastTriggeredElement = null;
 
   const scrollIntoViewOptions = { behavior:"smooth", block:"center", inline:"center" };
 
   let oldStylesByElement = new Map(); // ['element':[{'style':'name', 'value':'value', 'priority':'value'}]];
-
-  let pipWindow = null;
-
-  /* if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    // dark mode
-    HIGHLIGHT_BG_COLOR = HIGHLIGHT_DARK;
-    OUTLINE_COLOR = OUTLINE_DARK;
-  } */
 
   let options = {
     container: null,
@@ -74,8 +71,8 @@
     return ancestors;
   }
 
+  // all siblings of all the given elements (without the elements themselves)
   function getSiblingsOf(elements) {
-    if (!elements.hasOwnProperty('length')) elements = [elements];
     let allSiblings = [];
     for (const el of elements) {
       if (el.parentElement) {
@@ -83,15 +80,16 @@
         let siblings = children.filter((child) => child != el);
         allSiblings = allSiblings.concat(siblings);
       } else {
+        // detached/root element: walk the sibling chain
         let prevSibling = el.previousElementSibling;
         while (prevSibling) {
           allSiblings.push(prevSibling);
-          prevSibling = el.previousElementSibling;
+          prevSibling = prevSibling.previousElementSibling;
         }
         let nextSibling = el.nextElementSibling;
         while (nextSibling) {
           allSiblings.push(nextSibling);
-          nextSibling = el.nextElementSibling;
+          nextSibling = nextSibling.nextElementSibling;
         }
       }
     }
@@ -99,10 +97,11 @@
     return allSiblings;
   }
 
-  function removeCSS() {    
+  // undo everything done by popWindow(): restore styles and remove classes
+  function restorePage() {
     resetOldStyles(); // reset styles before removing classes
     
-    const classes = ['--popped-element', '--non-popped-element', '--popped-element-ancestor'];
+    const classes = ['--popped-element', '--non-popped-element', '--popped-element-ancestor', '--popped-element-parent'];
     const classesSelector = classes.map((c) => "." + c).join(",");
     const elements = document.querySelectorAll(classesSelector);
     const poppedElement = document.querySelector('.--popped-element');
@@ -144,17 +143,14 @@
     oldStylesByElement.clear();
   }
 
-  function popWindow(target, options={}) {
-    const defaults = { append:false };
-    options = {...defaults, ...options};
-    
+  function popWindow(target) {
     debug.log("[POPElement:CTX] target:", target);
     if (elementPicker) debug.log("[POPElement:CTX] info:", elementPicker.hoverInfo);
     lastTriggeredElement = target;
     
     // popOutPage if target is the root element
     if (target.parentElement == null) {
-      chrome.runtime.sendMessage({event: 'popOutPage', data: null});
+      chrome.runtime.sendMessage({event: EVENTS.POP_OUT_PAGE, data: null});
       return;
     }
     
@@ -172,9 +168,10 @@
     
     debug.log('[POPElement:CTX] ancestors:', ancestors);
     debug.log('[POPElement:CTX] ancestorsSiblings:', ancestorsSiblings);
-    
-    let ancestorsPosition = ancestors.map((el) => ({ el:el, position:getComputedStyle(el)['position'] }));
-    debug.log('[POPElement:CTX] ancestorsPosition:', ancestorsPosition);
+    if (DEBUG) {
+      let ancestorsPosition = ancestors.map((el) => ({ el:el, position:getComputedStyle(el)['position'] }));
+      debug.log('[POPElement:CTX] ancestorsPosition:', ancestorsPosition);
+    }
     
     // apply styles
     oldStylesByElement.clear();    
@@ -198,13 +195,12 @@
     if (parentElement && getComputedStyle(parentElement)['position'] === 'relative') {
       applyStylesTo('.--popped-element-parent', [{ 'position':'fixed' }]);
     }
-    // applyStylesTo('.--popped-element', [{ 'display':'block' }, { 'position':'fixed' }, { 'left':'0' }, { 'top':'0' }]);
     
     debug.log("[POPElement:CTX] oldStylesByElement:", oldStylesByElement);
     
     let data = { elementSize:elementSize, screenAvailSize:screenAvailSize };
     debug.log('[POPElement:CTX] popOutElement:', data);
-    chrome.runtime.sendMessage({ event:'popOutElement', data });
+    chrome.runtime.sendMessage({ event:EVENTS.POP_OUT_ELEMENT, data });
   }
 
   function createPicker() {
@@ -212,19 +208,15 @@
 
     elementPicker = new ElementPicker(options);
 
-    // elementPicker.hoverBox.style.cursor = CURSORS[0];
     elementPicker.action = {
       trigger: "mouseup",
       
       callback: ((event, target) => {
         debug.log("[POPElement:CTX] event:", event);
-        let continuePicking = event.shiftKey;
         event.triggered = event.triggered ?? event.button == 0; // only proceed if left mouse button was pressed or "event.triggered" was set
         if (event.triggered) {
-          popWindow(target, { append: continuePicking });
+          popWindow(target);
         }
-        
-        elementPicker.enabled = !event.triggered;
         
         closePicker();
       })
@@ -235,36 +227,100 @@
     debug.log("[POPElement:CTX] onMessage:", msg);
     const { event, data } = msg;
 
-    if (event === "togglePicker") {
+    if (event === EVENTS.TOGGLE_PICKER) {
       let enabled = elementPicker?.enabled ?? false;
       let toggledEnable = !enabled;
       if (toggledEnable) {
         createPicker();
         elementPicker.enabled = true;
-        elementPicker.hoverBox.style.cursor = CURSORS[0];
+        elementPicker.hoverBox.style.cursor = PICKER_CURSOR;
       } else {
         closePicker();
       }
-    } else if (event === "popOutPage") {
+    } else if (event === EVENTS.POP_OUT_PAGE) {
       if (elementPicker?.enabled) closePicker();
-      chrome.runtime.sendMessage({event: 'popOutPage', data: null});
-    } else if (event === "removeCSS" || event === "popInPage") {
-      //removeCSS();
-    } else if (event === "scrollIntoView") {
+      chrome.runtime.sendMessage({event: EVENTS.POP_OUT_PAGE, data: null});
+    } else if (event === EVENTS.POP_IN_PAGE) {
+      restorePage();
+    } else if (event === EVENTS.SCROLL_INTO_VIEW) {
       if (lastTriggeredElement) {
         lastTriggeredElement.scrollIntoView(scrollIntoViewOptions);
       }
       lastTriggeredElement = null;
-    } else if (event === 'checkState') {
+    } else if (event === EVENTS.CHECK_STATE) {
       sendResponse({event: 'setState', data: { allowed:true }});
     }
   });
 
-  const keyEventContainer = window; // elementPicker.iframe ? elementPicker.iframe : window;
+  // elements under the picker's last mouse position (innermost first), without the picker's own iframe
+  function getPickableElementsAtPoint() {
+    // temporarily set pointer-events:all for all videos
+    // (as pointer-events:none will prevent elements to be returned by elementsFromPoint())
+    const POINTER_EVENTS = 'pointer-events';
+    const fixedVideosMap = new Map(); // [element: { value, priority }]
+    for (const video of document.querySelectorAll('video')) {
+      if (getComputedStyle(video)[POINTER_EVENTS] === 'none') {
+        fixedVideosMap.set(video, {
+          value: video.style.getPropertyValue(POINTER_EVENTS),
+          priority: video.style.getPropertyPriority(POINTER_EVENTS),
+        });
+        video.style.setProperty(POINTER_EVENTS, 'all', 'important');
+      }
+    }
+    debug.log(`[POPElement:CTX] fixedVideosMap (${fixedVideosMap.size}):`, fixedVideosMap);
+
+    const elementsAtPoint = document
+      .elementsFromPoint(elementPicker._lastClientX, elementPicker._lastClientY)
+      .filter((el) => el != elementPicker.iframe);
+
+    // restore saved pointer-events prop of fixedVideosMap
+    for (const [video, style] of fixedVideosMap.entries()) {
+      video.style.setProperty(POINTER_EVENTS, style.value, style.priority);
+    }
+    return elementsAtPoint;
+  }
+
+  // move the picker's highlight to the parent (step = +1, key Q) or child (step = -1, key A) of the current target
+  function drillPicker(step) {
+    const target = elementPicker.hoverInfo.element;
+    const elementsAtPoint = getPickableElementsAtPoint();
+
+    // build ancestors array, starting at the innermost element at point
+    const ancestorsAndSelf = [];
+    for (let el = elementsAtPoint[0] ?? null; el != null; el = el.parentElement) {
+      ancestorsAndSelf.push(el);
+    }
+
+    debug.log('[POPElement:CTX] ancestors:', ancestorsAndSelf);
+    debug.log('[POPElement:CTX] elementsAtPoint:', [elementPicker._lastClientX, elementPicker._lastClientY], elementsAtPoint);
+
+    // merge the elements at point (e.g. overlays) into the ancestors array, just before the first ancestor containing them
+    const mergeAtIndices = [];
+    const ancestorsSet = new Set(ancestorsAndSelf);
+    for (const el of elementsAtPoint) {
+      if (ancestorsSet.has(el)) continue;
+      const index = ancestorsAndSelf.findIndex((ancestor) => ancestor.contains(el));
+      if (index >= 0) {
+        mergeAtIndices.push({ element:el, index:index });
+        ancestorsSet.add(el);
+      }
+    }
+    debug.log('[POPElement:CTX] mergeAtIndices:', mergeAtIndices);
+    for (const { element, index } of mergeAtIndices.toReversed()) {
+      ancestorsAndSelf.splice(index, 0, element);
+    }
+
+    const targetIdx = ancestorsAndSelf.indexOf(target);
+    const newTarget = ancestorsAndSelf[targetIdx + step];
+    debug.log(`[POPElement:CTX] ${targetIdx + step}/${ancestorsAndSelf.length - 1}`, 'newTarget:', newTarget, 'ancestorsAndSelf:', ancestorsAndSelf);
+    if (newTarget && newTarget != target) {
+      elementPicker.highlight(newTarget);
+    }
+  }
 
   // close picker when pressing ESC
-  keyEventContainer.addEventListener('keyup', function(e) {
-    if (elementPicker?.enabled && ['Escape', 'Space', 'KeyA', 'KeyQ'].includes(e.code)) {
+  window.addEventListener('keyup', function(e) {
+    if (elementPicker?.enabled && PICKER_KEYS.includes(e.code)) {
       e.preventDefault();
       e.stopImmediatePropagation();
     }
@@ -274,119 +330,19 @@
     }
   }, true);
 
-  keyEventContainer.addEventListener('keydown', function(e) {
-    if (elementPicker?.enabled && ['Escape', 'Space', 'KeyA', 'KeyQ'].includes(e.code)) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-    }
-    let target = null;
-    let newTarget = null;
-    let newTargetIdx = null;
-    if (e.code === 'Space' && elementPicker?.enabled) {
-      target = elementPicker.hoverInfo.element;
-      debug.log("[POPElement:CTX] space-clicked target:", target);
+  window.addEventListener('keydown', function(e) {
+    if (!elementPicker?.enabled || !PICKER_KEYS.includes(e.code)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    if (e.code === 'Space') {
+      debug.log("[POPElement:CTX] space-clicked target:", elementPicker.hoverInfo.element);
       e.triggered = true; // checked inside action callback
       elementPicker.trigger(e);
-    } else if (elementPicker?.enabled && (e.code === 'KeyQ' || e.code === 'KeyA')) {
-      target = elementPicker.hoverInfo.element;
-
-      // temporarily set pointer-events:all for all videos
-      // (as pointer-events:none will prevent elements to be returned by elementsFromPoint())
-      let videos = Array.from(document.querySelectorAll('video'));
-      let fixedVideosMap = new Map(); // [element: { prop, value, priority }]
-      const POINTER_EVENTS = 'pointer-events';
-      for (let video of videos) {
-        let computedStyle = getComputedStyle(video);
-        // console.log('video:', video, 'computedStyle', POINTER_EVENTS + ':', computedStyle[POINTER_EVENTS]);
-        if (computedStyle[POINTER_EVENTS] === 'none') {
-          let value = video.style.getPropertyValue(POINTER_EVENTS);
-          let priority = video.style.getPropertyPriority(POINTER_EVENTS);
-          fixedVideosMap.set(video, { prop:POINTER_EVENTS, value:value, priority:priority });
-          video.style.setProperty(POINTER_EVENTS, 'all', 'important');
-        }
-      }
-      debug.log(`[POPElement:CTX] fixedVideosMap (${fixedVideosMap}):`, fixedVideosMap)
-      
-      let innermostTargetAtPoint = null; // first non-picker-iframe element
-      
-      // get elements at point
-      let elementsAtPoint = document.elementsFromPoint(elementPicker._lastClientX, elementPicker._lastClientY);
-      for (let el of elementsAtPoint) {
-        if (el != elementPicker.iframe) {
-          innermostTargetAtPoint = el;
-          break;
-        }
-      }
-      // remove iframe from array (if present)
-      const pickerIFrameIdx = elementsAtPoint.indexOf(elementPicker.iframe);
-      if (pickerIFrameIdx >= 0) elementsAtPoint.splice(pickerIFrameIdx, 1);
-      
-      // restore saved pointer-events prop of fixedVideosMap
-      for (let [video, style] of fixedVideosMap.entries()) {
-        video.style.setProperty(style.prop, style.value, style.priority);
-      }
-      fixedVideosMap.clear();
-
-      // build ancestors array
-      let ancestorsAndSelf = [];
-      for (let el=innermostTargetAtPoint; el != null; el = el.parentElement) {
-        ancestorsAndSelf.push(el);
-      }
-      
-      debug.log('[POPElement:CTX] ancestors:', ancestorsAndSelf);
-      debug.log('[POPElement:CTX] elementsAtPoint:', [elementPicker._lastClientX, elementPicker._lastClientY], elementsAtPoint);
-      
-      let elementsToMerge = elementsAtPoint;
-      
-      // merge ancestors with elementsToMerge
-      let mergeAtIndices = [];
-      let ancestorsSet = new Set(ancestorsAndSelf);
-      for (let el of elementsToMerge) {
-        if (ancestorsSet.has(el)) {
-          continue;
-        }
-        for (let [idx, ancestor] of Object.entries(ancestorsAndSelf)) {
-          if (ancestor.contains(el)) {
-            mergeAtIndices.push({ element:el, index:idx });
-            ancestorsSet.add(el);
-            break;
-          }
-        }
-      }
-      debug.log('[POPElement:CTX] mergeAtIndices:', mergeAtIndices);
-      for (let mergeInfo of mergeAtIndices.toReversed()) {
-        const {element, index} = mergeInfo;
-        if (index == -1) {
-          ancestorsAndSelf.push(element);
-        } else {
-          ancestorsAndSelf.splice(index, 0, element);
-        }
-      }
-      
-      const ancestorsAndSelfLength = ancestorsAndSelf.length;
-      const targetIdx = ancestorsAndSelf.indexOf(target);
-      newTargetIdx = targetIdx;
-      const targetHasNext = targetIdx <= (ancestorsAndSelfLength - 2);
-      const targetHasPrev = targetIdx > 0;
-      if (e.code === 'KeyQ' && targetHasNext) { // drill up
-        newTargetIdx = targetIdx + 1;
-        newTarget = ancestorsAndSelf[newTargetIdx];
-        /*if (newTarget.contains(elementPicker.iframe)) {
-          newTarget = target;
-        }*/
-        debug.log("[POPElement:CTX] Q-pressed new ↑ target:", newTarget);
-      } else if (e.code === 'KeyA' && targetHasPrev) { // drill down
-        newTargetIdx = targetIdx - 1;
-        newTarget = ancestorsAndSelf[newTargetIdx];
-        /*if (newTarget.contains(elementPicker.iframe)) {
-          newTarget = target;
-        }*/
-        debug.log("[POPElement:CTX] A-pressed new ↓ target:", newTarget);
-      }
-      debug.log(`[POPElement:CTX] ${newTargetIdx}/${ancestorsAndSelfLength - 1}`, 'prev:', targetHasPrev, 'next:', targetHasNext, 'newTarget:', newTarget, 'ancestorsAndSelf:', ancestorsAndSelf);
-      if (newTarget && newTarget != target) {
-        elementPicker.highlight(newTarget);
-      }
+    } else if (e.code === 'KeyQ') { // drill up
+      drillPicker(+1);
+    } else if (e.code === 'KeyA') { // drill down
+      drillPicker(-1);
     }
   }, true);
 
